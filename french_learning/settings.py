@@ -28,6 +28,8 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 
+
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -40,7 +42,7 @@ INSTALLED_APPS = [
 
         # Third-party apps
         'rest_framework',
-
+        'corsheaders',
         # Custom apps
         'vocabulary',
         'api',

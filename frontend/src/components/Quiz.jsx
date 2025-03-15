@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { fetchVocabulary } from '../services/api';
+import '../styles/Quiz.css';
 
 function Quiz({ selectedCategories, onGoBack }) {
   const [vocabulary, setVocabulary] = useState([]);
@@ -10,6 +11,10 @@ function Quiz({ selectedCategories, onGoBack }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAnswer, setShowAnswer] = useState(false);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [audioMode, setAudioMode] = useState(false);
+  const [wordVisible, setWordVisible] = useState(true);
+  const audioRef = useRef(null);
 
   useEffect(() => {
     const loadVocabulary = async () => {
@@ -49,12 +54,20 @@ function Quiz({ selectedCategories, onGoBack }) {
     }
 
     setShowAnswer(true);
+    setWordVisible(true); // Always show word when revealing answer
   };
 
   const handleNextQuestion = () => {
     setUserAnswer('');
     setFeedback(null);
     setShowAnswer(false);
+
+    // If in audio mode, hide the word again
+    if (audioMode) {
+      setWordVisible(false);
+    } else {
+      setWordVisible(true);
+    }
 
     if (currentIndex < vocabulary.length - 1) {
       setCurrentIndex(prevIndex => prevIndex + 1);
@@ -63,6 +76,47 @@ function Quiz({ selectedCategories, onGoBack }) {
       setFeedback('Quiz complete!');
     }
   };
+
+  const playAudio = async () => {
+
+    if (!vocabulary[currentIndex]) return;
+
+    setAudioLoading(true);
+
+    try {
+      const response = await fetch(`/api/tts/?word_id=${vocabulary[currentIndex].id}`);
+      const data = await response.json();
+
+      if (data.success) {
+        // Create audio from base64
+        const audioSrc = `data:audio/mp3;base64,${data.audio}`;
+
+        if (audioRef.current) {
+          audioRef.current.src = audioSrc;
+          audioRef.current.play();
+        }
+      } else {
+        console.error('Failed to get audio:', data.error);
+      }
+    } catch (err) {
+      console.error('Error fetching audio:', err);
+    } finally {
+      setAudioLoading(false);
+    }
+  };
+
+  const toggleAudioMode = () => {
+    const newMode = !audioMode;
+    setAudioMode(newMode);
+    setWordVisible(!newMode);
+  };
+
+  useEffect(() => {
+    // When currentIndex changes and we're in audio mode, play the audio
+    if (audioMode && !loading && vocabulary.length > 0) {
+      playAudio();
+    }
+  }, [currentIndex, audioMode, loading, vocabulary]);
 
   if (loading) return <div>Loading quiz...</div>;
   if (error) return <div className="error">{error}</div>;
@@ -75,9 +129,33 @@ function Quiz({ selectedCategories, onGoBack }) {
     <div className="quiz-container">
       <h2>French Learning Quiz</h2>
 
+      <div className="quiz-controls">
+        <label className="audio-mode-toggle">
+          <input
+            type="checkbox"
+            checked={audioMode}
+            onChange={toggleAudioMode}
+          />
+          Audio Mode (Listen Instead of Read)
+        </label>
+      </div>
+
       <div className="question">
         <h3>Translate to German:</h3>
-        <p className="word">{currentWord.french_word}</p>
+
+        {wordVisible && (
+          <p className="word">{currentWord.french_word}</p>
+        )}
+
+        <audio ref={audioRef} controls={false} />
+
+        <button
+          onClick={playAudio}
+          disabled={audioLoading}
+          className="play-audio-btn"
+        >
+          {audioLoading ? 'Loading...' : '🔊 Play Audio'}
+        </button>
       </div>
 
       <div className="answer-section">
@@ -87,6 +165,7 @@ function Quiz({ selectedCategories, onGoBack }) {
           onChange={(e) => setUserAnswer(e.target.value)}
           placeholder="Enter translation in German"
           disabled={showAnswer}
+          autoFocus
         />
 
         {!showAnswer ? (
@@ -102,7 +181,10 @@ function Quiz({ selectedCategories, onGoBack }) {
         <div className={`feedback ${feedback === 'Correct!' ? 'correct' : 'incorrect'}`}>
           <p>{feedback}</p>
           {showAnswer && (
-            <p>Correct answer: <strong>{currentWord.german_word}</strong></p>
+            <>
+              <p>French word: <strong>{currentWord.french_word}</strong></p>
+              <p>Correct answer: <strong>{currentWord.german_word}</strong></p>
+            </>
           )}
         </div>
       )}
@@ -125,6 +207,7 @@ function Quiz({ selectedCategories, onGoBack }) {
       </button>
     </div>
   );
+
 }
 
 export default Quiz;

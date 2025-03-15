@@ -47,6 +47,36 @@ export const fetchVocabulary = async (categoryIds = []) => {
   }
 };
 
+export const fetchAudio = async (wordId) => {
+  try {
+    const response = await fetch(`${API_URL}/tts/?word_id=${wordId}`);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch audio: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Audio fetch error:', error);
+    throw error;
+  }
+};
+
+export const getAudioForText = async (text) => {
+  try {
+    const response = await fetch(`${API_URL}/tts/?text=${encodeURIComponent(text)}`);
+
+    if (!response.ok) {
+      throw new Error(`Failed to generate audio: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Audio generation error:', error);
+    throw error;
+  }
+};
+
 export const savePerformance = async (performanceData) => {
   try {
     const response = await fetch(`${API_URL}/performance/`, {
